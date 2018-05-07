@@ -10,4 +10,4 @@ To setup your local dev you will need to setup a PostgreSQL database. I provided
 psql -f setup.sql
 ```
 
-If you need help figuring our Postgres, I have a pretty depth series on using it here: <https://www.calhoun.io/using-postgresql-with-go/>
+If you need help figuring our Postgres, I have a pretty in-depth series on using it here: <https://www.calhoun.io/using-postgresql-with-go/>
