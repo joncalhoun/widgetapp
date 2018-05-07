@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"strings"
 
+	app "calhoun.io/widgetapp"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -143,9 +144,9 @@ func allWidgets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer rows.Close()
-	var widgets []Widget
+	var widgets []app.Widget
 	for rows.Next() {
-		var widget Widget
+		var widget app.Widget
 		err = rows.Scan(&widget.ID, &widget.Name, &widget.Price, &widget.Color)
 		if err != nil {
 			log.Printf("Failed to scan a widget: %v", err)
@@ -174,14 +175,6 @@ func allWidgets(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
 		return
 	}
-}
-
-type Widget struct {
-	ID     int
-	UserID int
-	Name   string
-	Price  int
-	Color  string
 }
 
 func showSignin(w http.ResponseWriter, r *http.Request) {
