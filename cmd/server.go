@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	app "github.com/joncalhoun/widgetapp"
+	"github.com/joncalhoun/widgetapp/mw"
 	"github.com/joncalhoun/widgetapp/postgres"
 	_ "github.com/lib/pq"
 )
@@ -43,14 +44,20 @@ func main() {
 	}
 	userService = &postgres.UserService{DB: db}
 	widgetService = &postgres.WidgetService{DB: db}
+	authMw := mw.Auth{
+		UserService: userService,
+	}
 
 	r := mux.NewRouter()
 	r.Handle("/", http.RedirectHandler("/signin", http.StatusFound))
 	r.HandleFunc("/signin", showSignin).Methods("GET")
 	r.HandleFunc("/signin", processSignin).Methods("POST")
-	r.HandleFunc("/widgets", allWidgets).Methods("GET")
-	r.HandleFunc("/widgets", createWidget).Methods("POST")
-	r.HandleFunc("/widgets/new", newWidget).Methods("GET")
+	r.Handle("/widgets", mw.ApplyFn(allWidgets,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("GET")
+	r.Handle("/widgets", mw.ApplyFn(createWidget,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("POST")
+	r.Handle("/widgets/new", mw.ApplyFn(newWidget,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("GET")
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
 
@@ -76,21 +83,7 @@ func newWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func createWidget(w http.ResponseWriter, r *http.Request) {
-	// Verify the user is signed in
-	session, err := r.Cookie("session")
-	if err != nil {
-		http.Redirect(w, r, "/signin", http.StatusFound)
-		return
-	}
-	user, err := userService.ByToken(session.Value)
-	if err != nil {
-		switch err {
-		case app.ErrNotFound:
-			http.Redirect(w, r, "/signin", http.StatusFound)
-		default:
-			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
-		}
-	}
+	user := r.Context().Value("user").(*app.User)
 
 	// Parse form values and validate data (pretend w/ me here)
 	widget := app.Widget{
@@ -98,6 +91,7 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 		Name:   r.PostFormValue("name"),
 		Color:  r.PostFormValue("color"),
 	}
+	var err error
 	widget.Price, err = strconv.Atoi(r.PostFormValue("price"))
 	if err != nil {
 		http.Error(w, "Invalid price", http.StatusBadRequest)
@@ -118,21 +112,7 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func allWidgets(w http.ResponseWriter, r *http.Request) {
-	// Verify the user is signed in
-	session, err := r.Cookie("session")
-	if err != nil {
-		http.Redirect(w, r, "/signin", http.StatusFound)
-		return
-	}
-	user, err := userService.ByToken(session.Value)
-	if err != nil {
-		switch err {
-		case app.ErrNotFound:
-			http.Redirect(w, r, "/signin", http.StatusFound)
-		default:
-			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
-		}
-	}
+	user := r.Context().Value("user").(*app.User)
 
 	// Query for this user's widgets
 	widgets, err := widgetService.ByUser(user.ID)
