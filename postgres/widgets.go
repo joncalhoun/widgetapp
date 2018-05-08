@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"log"
 
-	app "calhoun.io/widgetapp"
+	app "github.com/joncalhoun/widgetapp"
 )
 
 // WidgetService is a PostgreSQL specific implementation of the widget datastore.

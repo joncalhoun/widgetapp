@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"strings"
 
-	app "calhoun.io/widgetapp"
+	app "github.com/joncalhoun/widgetapp"
 )
 
 // UserService is a PostgreSQL specific implementation of the user datastore.

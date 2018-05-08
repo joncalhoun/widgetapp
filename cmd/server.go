@@ -8,9 +8,9 @@ import (
 	"net/http"
 	"strconv"
 
-	app "calhoun.io/widgetapp"
-	"calhoun.io/widgetapp/postgres"
 	"github.com/gorilla/mux"
+	app "github.com/joncalhoun/widgetapp"
+	"github.com/joncalhoun/widgetapp/postgres"
 	_ "github.com/lib/pq"
 )
 
