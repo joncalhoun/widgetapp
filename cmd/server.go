@@ -83,21 +83,7 @@ func newWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func createWidget(w http.ResponseWriter, r *http.Request) {
-	// Verify the user is signed in
-	session, err := r.Cookie("session")
-	if err != nil {
-		http.Redirect(w, r, "/signin", http.StatusFound)
-		return
-	}
-	user, err := userService.ByToken(session.Value)
-	if err != nil {
-		switch err {
-		case app.ErrNotFound:
-			http.Redirect(w, r, "/signin", http.StatusFound)
-		default:
-			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
-		}
-	}
+	user := r.Context().Value("user").(*app.User)
 
 	// Parse form values and validate data (pretend w/ me here)
 	widget := app.Widget{
@@ -105,6 +91,7 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 		Name:   r.PostFormValue("name"),
 		Color:  r.PostFormValue("color"),
 	}
+	var err error
 	widget.Price, err = strconv.Atoi(r.PostFormValue("price"))
 	if err != nil {
 		http.Error(w, "Invalid price", http.StatusBadRequest)
@@ -125,21 +112,7 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func allWidgets(w http.ResponseWriter, r *http.Request) {
-	// Verify the user is signed in
-	session, err := r.Cookie("session")
-	if err != nil {
-		http.Redirect(w, r, "/signin", http.StatusFound)
-		return
-	}
-	user, err := userService.ByToken(session.Value)
-	if err != nil {
-		switch err {
-		case app.ErrNotFound:
-			http.Redirect(w, r, "/signin", http.StatusFound)
-		default:
-			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
-		}
-	}
+	user := r.Context().Value("user").(*app.User)
 
 	// Query for this user's widgets
 	widgets, err := widgetService.ByUser(user.ID)
