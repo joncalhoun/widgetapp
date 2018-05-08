@@ -9,8 +9,8 @@ import (
 	"strconv"
 	"strings"
 
-	app "calhoun.io/widgetapp"
 	"github.com/gorilla/mux"
+	app "github.com/joncalhoun/widgetapp"
 	_ "github.com/lib/pq"
 )
 
