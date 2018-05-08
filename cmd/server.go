@@ -7,9 +7,9 @@ import (
 	"log"
 	"net/http"
 	"strconv"
-	"strings"
 
 	app "calhoun.io/widgetapp"
+	"calhoun.io/widgetapp/postgres"
 	"github.com/gorilla/mux"
 	_ "github.com/lib/pq"
 )
@@ -23,7 +23,8 @@ const (
 )
 
 var (
-	db *sql.DB
+	userService   app.UserService
+	widgetService app.WidgetService
 )
 
 func main() {
@@ -31,8 +32,7 @@ func main() {
 	psqlInfo := fmt.Sprintf("host=%s port=%d user=%s "+
 		"password=%s dbname=%s sslmode=disable",
 		host, port, user, password, dbname)
-	var err error
-	db, err = sql.Open("postgres", psqlInfo)
+	db, err := sql.Open("postgres", psqlInfo)
 	if err != nil {
 		panic(err)
 	}
@@ -41,6 +41,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+	userService = &postgres.UserService{DB: db}
+	widgetService = &postgres.WidgetService{DB: db}
 
 	r := mux.NewRouter()
 	r.Handle("/", http.RedirectHandler("/signin", http.StatusFound))
@@ -80,35 +82,34 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signin", http.StatusFound)
 		return
 	}
-	row := db.QueryRow(`SELECT id FROM users WHERE token=$1;`, session.Value)
-	var userID int
-	err = row.Scan(&userID)
+	user, err := userService.ByToken(session.Value)
 	if err != nil {
 		switch err {
-		case sql.ErrNoRows:
-			// Email doesn't map to a user in our DB
+		case app.ErrNotFound:
 			http.Redirect(w, r, "/signin", http.StatusFound)
 		default:
 			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
 		}
-		return
 	}
 
 	// Parse form values and validate data (pretend w/ me here)
-	name := r.PostFormValue("name")
-	color := r.PostFormValue("color")
-	price, err := strconv.Atoi(r.PostFormValue("price"))
+	widget := app.Widget{
+		UserID: user.ID,
+		Name:   r.PostFormValue("name"),
+		Color:  r.PostFormValue("color"),
+	}
+	widget.Price, err = strconv.Atoi(r.PostFormValue("price"))
 	if err != nil {
 		http.Error(w, "Invalid price", http.StatusBadRequest)
 		return
 	}
-	if color == "Green" && price%2 != 0 {
+	if widget.Color == "Green" && widget.Price%2 != 0 {
 		http.Error(w, "Price must be even with a color of Green", http.StatusBadRequest)
 		return
 	}
 
 	// Create a new widget!
-	_, err = db.Exec(`INSERT INTO widgets(userID, name, price, color) VALUES($1, $2, $3, $4)`, userID, name, price, color)
+	err = widgetService.Create(&widget)
 	if err != nil {
 		http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
 		return
@@ -123,36 +124,21 @@ func allWidgets(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/signin", http.StatusFound)
 		return
 	}
-	row := db.QueryRow(`SELECT id FROM users WHERE token=$1;`, session.Value)
-	var userID int
-	err = row.Scan(&userID)
+	user, err := userService.ByToken(session.Value)
 	if err != nil {
 		switch err {
-		case sql.ErrNoRows:
-			// Email doesn't map to a user in our DB
+		case app.ErrNotFound:
 			http.Redirect(w, r, "/signin", http.StatusFound)
 		default:
 			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
 		}
-		return
 	}
 
 	// Query for this user's widgets
-	rows, err := db.Query(`SELECT id, name, price, color FROM widgets WHERE userID=$1`, userID)
+	widgets, err := widgetService.ByUser(user.ID)
 	if err != nil {
 		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
 		return
-	}
-	defer rows.Close()
-	var widgets []app.Widget
-	for rows.Next() {
-		var widget app.Widget
-		err = rows.Scan(&widget.ID, &widget.Name, &widget.Price, &widget.Color)
-		if err != nil {
-			log.Printf("Failed to scan a widget: %v", err)
-			continue
-		}
-		widgets = append(widgets, widget)
 	}
 
 	// Render the widgets
@@ -204,24 +190,19 @@ func processSignin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Lookup the user ID by their email in the DB
-	email = strings.ToLower(email)
-	row := db.QueryRow(`SELECT id FROM users WHERE email=$1;`, email)
-	var id int
-	err := row.Scan(&id)
+	user, err := userService.ByEmail(email)
 	if err != nil {
 		switch err {
-		case sql.ErrNoRows:
-			// Email doesn't map to a user in our DB
+		case app.ErrNotFound:
 			http.Redirect(w, r, "/signin", http.StatusFound)
 		default:
 			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
 		}
-		return
 	}
 
 	// Create a fake session token
-	token := fmt.Sprintf("fake-session-id-%d", id)
-	_, err = db.Exec(`UPDATE users SET token=$2 WHERE id=$1`, id, token)
+	token := fmt.Sprintf("fake-session-id-%d", user.ID)
+	err = userService.UpdateToken(user.ID, token)
 	if err != nil {
 		http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
 		return
