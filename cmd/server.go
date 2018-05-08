@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	app "github.com/joncalhoun/widgetapp"
+	"github.com/joncalhoun/widgetapp/context"
 	"github.com/joncalhoun/widgetapp/mw"
 	"github.com/joncalhoun/widgetapp/postgres"
 	_ "github.com/lib/pq"
@@ -83,7 +84,7 @@ func newWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func createWidget(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user").(*app.User)
+	user := context.User(r.Context())
 
 	// Parse form values and validate data (pretend w/ me here)
 	widget := app.Widget{
@@ -112,7 +113,7 @@ func createWidget(w http.ResponseWriter, r *http.Request) {
 }
 
 func allWidgets(w http.ResponseWriter, r *http.Request) {
-	user := r.Context().Value("user").(*app.User)
+	user := context.User(r.Context())
 
 	// Query for this user's widgets
 	widgets, err := widgetService.ByUser(user.ID)
