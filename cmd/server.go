@@ -10,6 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	app "github.com/joncalhoun/widgetapp"
+	"github.com/joncalhoun/widgetapp/mw"
 	"github.com/joncalhoun/widgetapp/postgres"
 	_ "github.com/lib/pq"
 )
@@ -43,14 +44,20 @@ func main() {
 	}
 	userService = &postgres.UserService{DB: db}
 	widgetService = &postgres.WidgetService{DB: db}
+	authMw := mw.Auth{
+		UserService: userService,
+	}
 
 	r := mux.NewRouter()
 	r.Handle("/", http.RedirectHandler("/signin", http.StatusFound))
 	r.HandleFunc("/signin", showSignin).Methods("GET")
 	r.HandleFunc("/signin", processSignin).Methods("POST")
-	r.HandleFunc("/widgets", allWidgets).Methods("GET")
-	r.HandleFunc("/widgets", createWidget).Methods("POST")
-	r.HandleFunc("/widgets/new", newWidget).Methods("GET")
+	r.Handle("/widgets", mw.ApplyFn(allWidgets,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("GET")
+	r.Handle("/widgets", mw.ApplyFn(createWidget,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("POST")
+	r.Handle("/widgets/new", mw.ApplyFn(newWidget,
+		authMw.UserViaSession, authMw.RequireUser)).Methods("GET")
 	log.Fatal(http.ListenAndServe(":3000", r))
 }
 
