@@ -1,10 +1,10 @@
 package mw
 
 import (
-	"context"
 	"net/http"
 
 	app "github.com/joncalhoun/widgetapp"
+	"github.com/joncalhoun/widgetapp/context"
 )
 
 // Auth provides middleware functions for authorizing users and setting the user
@@ -36,7 +36,7 @@ func (a *Auth) UserViaSession(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
-		r.WithContext(context.WithValue(r.Context(), "user", &user))
+		r = r.WithContext(context.WithUser(r.Context(), user))
 		next.ServeHTTP(w, r)
 	}
 }
@@ -46,14 +46,8 @@ func (a *Auth) UserViaSession(next http.Handler) http.HandlerFunc {
 // the user to the sign in page and the next handler will not be called.
 func (a *Auth) RequireUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tmp := r.Context().Value("user")
-		if tmp == nil {
-			http.Redirect(w, r, "/signin", http.StatusFound)
-			return
-		}
-		if _, ok := tmp.(*app.User); !ok {
-			// Whatever was set in the user key isn't a user, so we probably need to
-			// sign in.
+		user := context.User(r.Context())
+		if user == nil {
 			http.Redirect(w, r, "/signin", http.StatusFound)
 			return
 		}
