@@ -10,7 +10,7 @@ import (
 
 	"github.com/gorilla/mux"
 	app "github.com/joncalhoun/widgetapp"
-	"github.com/joncalhoun/widgetapp/postgres"
+	"github.com/joncalhoun/widgetapp/psql"
 	_ "github.com/lib/pq"
 )
 
@@ -41,8 +41,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	userService = &postgres.UserService{DB: db}
-	widgetService = &postgres.WidgetService{DB: db}
+	userService = &psql.UserService{DB: db}
+	widgetService = &psql.WidgetService{DB: db}
 
 	r := mux.NewRouter()
 	r.Handle("/", http.RedirectHandler("/signin", http.StatusFound))
