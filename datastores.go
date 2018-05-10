@@ -21,7 +21,7 @@ var (
 )
 
 // UserService defines the interface used to interact with the users datastore.
-// Implementations can be found in packages like the postgres package.
+// Implementations can be found in packages like the psql package.
 type UserService interface {
 	ByEmail(email string) (*User, error)
 	ByToken(token string) (*User, error)
@@ -29,7 +29,7 @@ type UserService interface {
 }
 
 // WidgetService defines the interface used to interact with the widgets
-// datastore. Implementations can be found in packages like the postges package.
+// datastore. Implementations can be found in packages like the psql package.
 type WidgetService interface {
 	ByUser(userID int) ([]Widget, error)
 	Create(widget *Widget) error
