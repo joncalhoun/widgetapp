@@ -1,4 +1,4 @@
-package mw
+package http
 
 import (
 	"net/http"
@@ -7,10 +7,10 @@ import (
 	"github.com/joncalhoun/widgetapp/context"
 )
 
-// Auth provides middleware functions for authorizing users and setting the user
+// AuthMw provides middleware functions for authorizing users and setting the user
 // in the request context.
-type Auth struct {
-	UserService app.UserService
+type AuthMw struct {
+	userService app.UserService
 }
 
 // UserViaSession will retrieve the current user set by the session cookie
@@ -18,7 +18,7 @@ type Auth struct {
 // to the sign in page if the user is not found. That is left for the
 // RequireUser method to handle so that some pages can optionally have
 // access to the current user.
-func (a *Auth) UserViaSession(next http.Handler) http.HandlerFunc {
+func (mw *AuthMw) UserViaSession(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		session, err := r.Cookie("session")
 		if err != nil {
@@ -26,7 +26,7 @@ func (a *Auth) UserViaSession(next http.Handler) http.HandlerFunc {
 			next.ServeHTTP(w, r)
 			return
 		}
-		user, err := a.UserService.ByToken(session.Value)
+		user, err := mw.userService.ByToken(session.Value)
 		if err != nil {
 			// If you want you can retain the original functionality to call
 			// http.Error if any error aside from app.ErrNotFound is returned,
@@ -44,7 +44,7 @@ func (a *Auth) UserViaSession(next http.Handler) http.HandlerFunc {
 // RequireUser will verify that a user is set in the request context. It if is
 // set correctly, the next handler will be called, otherwise it will redirect
 // the user to the sign in page and the next handler will not be called.
-func (a *Auth) RequireUser(next http.Handler) http.HandlerFunc {
+func (mw *AuthMw) RequireUser(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		user := context.User(r.Context())
 		if user == nil {
