@@ -12,7 +12,7 @@ import (
 	app "github.com/joncalhoun/widgetapp"
 	"github.com/joncalhoun/widgetapp/context"
 	"github.com/joncalhoun/widgetapp/mw"
-	"github.com/joncalhoun/widgetapp/postgres"
+	"github.com/joncalhoun/widgetapp/psql"
 	_ "github.com/lib/pq"
 )
 
@@ -43,8 +43,8 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	userService = &postgres.UserService{DB: db}
-	widgetService = &postgres.WidgetService{DB: db}
+	userService = &psql.UserService{DB: db}
+	widgetService = &psql.WidgetService{DB: db}
 	authMw := mw.Auth{
 		UserService: userService,
 	}
