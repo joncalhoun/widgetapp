@@ -15,7 +15,7 @@ type WidgetHandler struct {
 	renderNew func(http.ResponseWriter)
 
 	parseWidget         func(*http.Request) (*app.Widget, error)
-	renderCreateSuccess func(http.ResponseWriter, *http.Request)
+	renderCreateSuccess func(http.ResponseWriter, *http.Request, *app.Widget)
 	renderCreateError   func(http.ResponseWriter, *http.Request, error)
 
 	renderIndexSuccess func(http.ResponseWriter, *http.Request, []app.Widget) error
@@ -50,7 +50,7 @@ func (h *WidgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 		h.renderCreateError(w, r, err)
 		return
 	}
-	h.renderCreateSuccess(w, r)
+	h.renderCreateSuccess(w, r, widget)
 }
 
 // Index lists all of a users widgets.
