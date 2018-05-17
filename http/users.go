@@ -1,43 +1,40 @@
 package http
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	app "github.com/joncalhoun/widgetapp"
 )
 
+var (
+	errAuthFailed = errors.New("http: authentication failed")
+)
+
 // UserHandler contains user-specific http.HandlerFuncs as
 // methods.
 type UserHandler struct {
 	userService app.UserService
+
+	renderSignin func(http.ResponseWriter)
+
+	parseEmailAndPassword      func(*http.Request) (email, password string)
+	renderProcessSigninSuccess func(http.ResponseWriter, *http.Request, string)
+	renderProcessSigninError   func(http.ResponseWriter, *http.Request, error)
 }
 
 // ShowSignin will render the sign in form
 func (h *UserHandler) ShowSignin(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
-<html lang="en">
-<form action="/signin" method="POST">
-	<label for="email">Email Address</label>
-	<input type="email" id="email" name="email" placeholder="you@example.com">
-
-	<label for="password">Password</label>
-	<input type="password" id="password" name="password" placeholder="something-secret">
-
-	<button type="submit">Sign in</button>
-</form>
-</html>`
-	fmt.Fprint(w, html)
+	h.renderSignin(w)
 }
 
 // ProcessSignin will process the signin form
 func (h *UserHandler) ProcessSignin(w http.ResponseWriter, r *http.Request) {
-	email := r.PostFormValue("email")
-	password := r.PostFormValue("password")
+	email, password := h.parseEmailAndPassword(r)
 	// Fake the password part
 	if password != "demo" {
-		http.Redirect(w, r, "/signin", http.StatusNotFound)
+		h.renderProcessSigninError(w, r, errAuthFailed)
 		return
 	}
 
@@ -46,23 +43,19 @@ func (h *UserHandler) ProcessSignin(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		switch err {
 		case app.ErrNotFound:
-			http.Redirect(w, r, "/signin", http.StatusFound)
+			h.renderProcessSigninError(w, r, errAuthFailed)
 		default:
-			http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
+			h.renderProcessSigninError(w, r, err)
 		}
+		return
 	}
 
 	// Create a fake session token
 	token := fmt.Sprintf("fake-session-id-%d", user.ID)
 	err = h.userService.UpdateToken(user.ID, token)
 	if err != nil {
-		http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
+		h.renderProcessSigninError(w, r, err)
 		return
 	}
-	cookie := http.Cookie{
-		Name:  "session",
-		Value: token,
-	}
-	http.SetCookie(w, &cookie)
-	http.Redirect(w, r, "/widgets", http.StatusFound)
+	h.renderProcessSigninSuccess(w, r, token)
 }

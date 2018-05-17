@@ -1,10 +1,7 @@
 package http
 
 import (
-	"fmt"
-	"html/template"
 	"net/http"
-	"strconv"
 
 	app "github.com/joncalhoun/widgetapp"
 	"github.com/joncalhoun/widgetapp/context"
@@ -14,57 +11,46 @@ import (
 // methods.
 type WidgetHandler struct {
 	widgetService app.WidgetService
+
+	renderNew func(http.ResponseWriter)
+
+	parseWidget         func(*http.Request) (*app.Widget, error)
+	renderCreateSuccess func(http.ResponseWriter, *http.Request)
+	renderCreateError   func(http.ResponseWriter, *http.Request, error)
+
+	renderIndexSuccess func(http.ResponseWriter, *http.Request, []app.Widget) error
+	renderIndexError   func(http.ResponseWriter, *http.Request, error)
 }
 
 // New renders a form for creating a new widget.
 func (h *WidgetHandler) New(w http.ResponseWriter, r *http.Request) {
-	html := `
-<!DOCTYPE html>
-<html lang="en">
-<form action="/widgets" method="POST">
-	<label for="name">Name</label>
-	<input type="text" id="name" name="name" placeholder="Stop Widget">
-
-	<label for="color">Color</label>
-	<input type="text" id="color" name="color" placeholder="Red">
-
-	<label for="price">Price</label>
-	<input type="number" id="price" name="price" placeholder="18">
-
-	<button type="submit">Create it!</button>
-</form>
-</html>`
-	fmt.Fprint(w, html)
+	h.renderNew(w)
 }
 
 // Create processes the request and creates a new widget.
 func (h *WidgetHandler) Create(w http.ResponseWriter, r *http.Request) {
 	user := context.User(r.Context())
-
-	// Parse form values and validate data (pretend w/ me here)
-	widget := app.Widget{
-		UserID: user.ID,
-		Name:   r.PostFormValue("name"),
-		Color:  r.PostFormValue("color"),
-	}
-	var err error
-	widget.Price, err = strconv.Atoi(r.PostFormValue("price"))
+	widget, err := h.parseWidget(r)
 	if err != nil {
-		http.Error(w, "Invalid price", http.StatusBadRequest)
+		h.renderCreateError(w, r, err)
 		return
 	}
+	widget.UserID = user.ID
 	if widget.Color == "Green" && widget.Price%2 != 0 {
-		http.Error(w, "Price must be even with a color of Green", http.StatusBadRequest)
+		h.renderCreateError(w, r, validationError{
+			fields:  []string{"price", "color"},
+			message: "Price must be even with a color of Green",
+		})
 		return
 	}
 
 	// Create a new widget!
-	err = h.widgetService.Create(&widget)
+	err = h.widgetService.Create(widget)
 	if err != nil {
-		http.Error(w, "Something went wrong. Try again later.", http.StatusInternalServerError)
+		h.renderCreateError(w, r, err)
 		return
 	}
-	http.Redirect(w, r, "/widgets", http.StatusFound)
+	h.renderCreateSuccess(w, r)
 }
 
 // Index lists all of a users widgets.
@@ -74,28 +60,12 @@ func (h *WidgetHandler) Index(w http.ResponseWriter, r *http.Request) {
 	// Query for this user's widgets
 	widgets, err := h.widgetService.ByUser(user.ID)
 	if err != nil {
-		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
+		h.renderIndexError(w, r, err)
 		return
 	}
-
-	// Render the widgets
-	tplStr := `
-<!DOCTYPE html>
-<html lang="en">
-<h1>Widgets</h1>
-<ul>
-{{range .}}
-	<li>{{.Name}} - {{.Color}}: <b>${{.Price}}</b></li>
-{{end}}
-</ul>
-<p>
-	<a href="/widgets/new">Create a new widget</a>
-</p>
-</html>`
-	tpl := template.Must(template.New("").Parse(tplStr))
-	err = tpl.Execute(w, widgets)
+	err = h.renderIndexSuccess(w, r, widgets)
 	if err != nil {
-		http.Error(w, "Something went wrong.", http.StatusInternalServerError)
+		h.renderIndexError(w, r, err)
 		return
 	}
 }
