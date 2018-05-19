@@ -25,10 +25,11 @@ func User(ctx context.Context) *app.User {
 	if tmp == nil {
 		return nil
 	}
-	if user, ok := tmp.(*app.User); ok {
-		return user
+	user, ok := tmp.(*app.User)
+	if !ok {
+		// This shouldn't happen. If it does, it means we have a bug in our code.
+		log.Printf("context: user value set incorrectly. type=%T, value=%#v", tmp, tmp)
+		return nil
 	}
-	// This shouldn't happen. If it does, it means we have a bug in our code.
-	log.Printf("context: user value set incorrectly. type=%T, value=%#v", tmp, tmp)
-	return nil
+	return user
 }
